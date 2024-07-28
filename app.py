@@ -104,9 +104,8 @@ def get_google_drive_service():
                 redirect_uri="http://localhost:8501/",
             )
             auth_url, _ = flow.authorization_url(prompt="consent")
-            st.experimental_set_query_params(authorization_url=auth_url)
             st.write(
-                f'<a href="{auth_url}" target="_self">Authorize Google Drive</a>',
+                f'<a href="{auth_url}" target="_blank">Authorize Google Drive</a>',
                 unsafe_allow_html=True,
             )
             return None
