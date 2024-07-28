@@ -1,5 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -15,19 +14,30 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 st.set_page_config(page_title="Netcore GPT", page_icon=":books:")
-load_dotenv()
 
 # Initialize SessionStorage
 sessionBrowserS = SessionStorage()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = st.secrets["database"]["url"]
 
+def construct_token_dict():
+    token_dict = {
+        "web": {
+            "client_id": st.secrets["token_dict"]["client_id"],
+            "project_id": st.secrets["token_dict"]["project_id"],
+            "auth_uri": st.secrets["token_dict"]["auth_uri"],
+            "token_uri": st.secrets["token_dict"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["token_dict"]["auth_provider_x509_cert_url"],
+            "client_secret": st.secrets["token_dict"]["client_secret"],
+            "redirect_uris": st.secrets["token_dict"]["redirect_uris"],
+        }
+    }
+    return token_dict
 
 # Database connection
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
-
 
 # Function to save a message to the database
 def save_message(user_id, message, is_user):
@@ -40,7 +50,6 @@ def save_message(user_id, message, is_user):
     conn.commit()
     cursor.close()
     conn.close()
-
 
 # Function to load chat history for a user
 def load_chat_history(user_id):
@@ -55,12 +64,10 @@ def load_chat_history(user_id):
     conn.close()
     return chat_history
 
-
 # Function to save credentials to SessionStorage
 def save_credentials(credentials):
     credentials_dict = json.loads(credentials.to_json())
     sessionBrowserS.setItem("google_drive_credentials", credentials_dict)
-
 
 # Function to load credentials from SessionStorage
 def load_credentials():
@@ -83,7 +90,6 @@ def delete_credentials():
 
 # Function to authenticate and get the Google Drive service
 def get_google_drive_service():
-    load_dotenv()
     creds = load_credentials()
 
     if not creds or not creds.valid:
@@ -91,8 +97,7 @@ def get_google_drive_service():
             creds.refresh(Request())
             save_credentials(creds)
         else:
-            print(os.getenv("TOKEN_DICT"))
-            token_dict = json.loads(os.getenv("TOKEN_DICT"))
+            token_dict = construct_token_dict()
             flow = InstalledAppFlow.from_client_config(
                 token_dict,
                 scopes=["https://www.googleapis.com/auth/drive.readonly"],
@@ -114,7 +119,6 @@ def get_google_drive_service():
         st.write("Google Drive authorization failed.")
         return None
 
-
 def list_pdfs(service):
     results = (
         service.files()
@@ -129,12 +133,10 @@ def list_pdfs(service):
     pdf_files = {item["name"]: item["id"] for item in items}
     return pdf_files
 
-
 def download_pdf(service, file_id):
     request = service.files().get_media(fileId=file_id)
     file = io.BytesIO(request.execute())
     return file
-
 
 def get_pdf_text(pdf_docs):
     text = ""
@@ -143,7 +145,6 @@ def get_pdf_text(pdf_docs):
         for page in pdf_reader.pages:
             text += page.extract_text()
     return text
-
 
 def get_text_chunks(text):
     from langchain.text_splitter import CharacterTextSplitter
@@ -154,28 +155,25 @@ def get_text_chunks(text):
     chunks = text_splitter.split_text(text)
     return chunks
 
-
 def get_vectorstore(text_chunks):
     from langchain.embeddings import OpenAIEmbeddings
     from langchain.vectorstores import FAISS
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(api_key=st.secrets["openai"]["api_key"])
     vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
     return vectorstore
-
 
 def get_conversation_chain(vectorstore):
     from langchain.chat_models import ChatOpenAI
     from langchain.memory import ConversationBufferMemory
     from langchain.chains import ConversationalRetrievalChain
 
-    llm = ChatOpenAI()
+    llm = ChatOpenAI(api_key=st.secrets["openai"]["api_key"])
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm, retriever=vectorstore.as_retriever(), memory=memory
     )
     return conversation_chain
-
 
 def handle_userinput(user_id, user_question):
     response = st.session_state.conversation({"question": user_question})
@@ -194,9 +192,7 @@ def handle_userinput(user_id, user_question):
                 bot_template.replace("{{MSG}}", message.content), unsafe_allow_html=True
             )
 
-
 def main():
-
     st.write(css, unsafe_allow_html=True)
 
     if "conversation" not in st.session_state:
@@ -225,8 +221,8 @@ def main():
         st.subheader("Google Drive PDFs")
         query_params = st.experimental_get_query_params()
         if "code" in query_params:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "token.json",
+            flow = InstalledAppFlow.from_client_config(
+                construct_token_dict(),
                 scopes=["https://www.googleapis.com/auth/drive.readonly"],
                 redirect_uri="http://localhost:8501/",
             )
@@ -251,8 +247,7 @@ def main():
                     text_chunks = get_text_chunks(raw_text)
                     vectorstore = get_vectorstore(text_chunks)
                     st.session_state.conversation = get_conversation_chain(vectorstore)
-            # st.button("Logout", on_click=delete_credentials)
-
+            st.button("Logout", on_click=delete_credentials)
 
 if __name__ == "__main__":
     main()
