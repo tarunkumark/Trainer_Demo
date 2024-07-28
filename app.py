@@ -101,7 +101,7 @@ def get_google_drive_service():
             flow = InstalledAppFlow.from_client_config(
                 token_dict,
                 scopes=["https://www.googleapis.com/auth/drive.readonly"],
-                redirect_uri="http://localhost:8501/",
+                redirect_uri="https://trainer-demo.streamlit.app/",
             )
             auth_url, _ = flow.authorization_url(prompt="consent")
             st.write(
@@ -223,7 +223,7 @@ def main():
             flow = InstalledAppFlow.from_client_config(
                 construct_token_dict(),
                 scopes=["https://www.googleapis.com/auth/drive.readonly"],
-                redirect_uri="http://localhost:8501/",
+                redirect_uri="https://trainer-demo.streamlit.app/",
             )
             flow.fetch_token(code=query_params["code"][0])
             creds = flow.credentials
