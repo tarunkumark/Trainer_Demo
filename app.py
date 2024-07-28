@@ -14,6 +14,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
+st.set_page_config(page_title="Netcore GPT", page_icon=":books:")
 load_dotenv()
 
 # Initialize SessionStorage
@@ -90,6 +91,7 @@ def get_google_drive_service():
             creds.refresh(Request())
             save_credentials(creds)
         else:
+            print(os.getenv("TOKEN_DICT"))
             token_dict = json.loads(os.getenv("TOKEN_DICT"))
             flow = InstalledAppFlow.from_client_config(
                 token_dict,
@@ -195,7 +197,6 @@ def handle_userinput(user_id, user_question):
 
 def main():
 
-    st.set_page_config(page_title="Netcore GPT", page_icon=":books:")
     st.write(css, unsafe_allow_html=True)
 
     if "conversation" not in st.session_state:
