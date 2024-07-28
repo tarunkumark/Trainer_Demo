@@ -103,7 +103,10 @@ def get_google_drive_service():
                 scopes=["https://www.googleapis.com/auth/drive.readonly"],
                 redirect_uri="https://trainer-demo.streamlit.app/",
             )
-            auth_url, _ = flow.authorization_url(prompt="consent")
+            auth_url, _ = flow.authorization_url(
+                access_type='offline',
+                prompt='consent'
+            )
             st.write(
                 f'<a href="{auth_url}" target="_blank">Authorize Google Drive</a>',
                 unsafe_allow_html=True,
